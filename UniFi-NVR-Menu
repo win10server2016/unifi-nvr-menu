@@ -1,0 +1,80 @@
+#!/usr/bin/env powershell
+function Install-SSHSessions
+{
+$SSHInstalled=(Get-InstalledModule -Name SSHSessions)
+If ($SSHInstalled)
+{cls;Write-Host 'SshSessions is already installed.';echo $SSHInstalled}
+ElseIf (!($SSHInstalled))
+{cls;Write-Host 'Need to install SSHSession. Please wait.';Install-Module -Name SSHSessions -RequiredVersion 1.9;Write-Host 'SSHSessions has been successfully installed.'}
+}
+
+Install-SSHSessions #SSHSessions check
+Remove-SshSession -RemoveAll -ErrorAction SilentlyContinue
+$SshIP='192.168.1.3'
+$SshStatus=(Get-SshSession -CN $SshIP)
+If (!($SshStatus.Connected))
+{cls;Write-Host 'Connecting';New-SshSession -CN $SshIP -Credential unifiadmin -Port 22;$SshStatus=(Get-SshSession -CN $SshIP)}
+If (!($SshStatus.Connected))
+{cls;Write-Host 'Error connecting. Please try again.';break;}
+
+function Show-Menu
+{
+#   param {
+#        [string]$Title = 'UniFi Control Manager'
+#    }
+    cls
+    $SshStatus=(Get-SshSession -CN $SshIP)
+    If (($SshStatus.Connected))
+    {Write-Host $('─'*16+'Connected to: '+($SshStatus.ComputerName)+'─'*16)}
+
+    If (!($SshStatus.Connected))
+    {Write-Host $('─'*16+'Not Connected!'+'─'*16)}
+
+    Write-Host '  1: Power Off Server'
+    Write-Host '  2: Reboot Server'
+    Write-Host '  3: Start/Restart UniFi Video Service'
+    Write-Host '  4: Stop Unfi Video Service'
+    Write-Host '  5: Reconnect to Server'
+    Write-Host "  Q: Press 'Q' to quit"
+}
+
+
+
+
+
+do
+{
+    Show-Menu
+    $SshStatus=(Get-SshSession -CN $SshIP)
+    $input = Read-Host "`n Please make a selection"
+    switch ($input)
+    {
+        '1' {
+            cls
+            Invoke-SshCommand -CN $SshIP -Command 'sudo shutdown now' -ErrorAction SilentlyContinue;Write-Host 'Shutting down now.';
+        } '2' {
+           cls
+            Invoke-SshCommand -CN $SshIP -Command 'sudo reboot' -ErrorAction SilentlyContinue;Write-Host 'Rebooting now.';
+        } '3' {
+            cls
+            Write-Host 'Starting/Restarting Unifi-Video Service.';Invoke-SshCommand -CN $SshIP -Command 'sudo /etc/init.d/unifi-video restart'                       
+        } '4' {
+            cls
+            Write-Host 'Stopping Unifi-Video Service.';Invoke-SshCommand -CN $SshIP -Command 'sudo /etc/init.d/unifi-video stop'
+        } '5' {
+            cls
+            Remove-SshSession -RemoveAll -ErrorAction Ignore
+            $SshStatus=(Get-SshSession -CN $SshIP)
+            If (!($SshStatus.Connected))
+              {cls;Write-Host 'Connecting';New-SshSession -CN $SshIP -Credential dgits -Port 22;$SshStatus=(Get-SshSession -CN $SshIP)}
+            If (!($SshStatus.Connected))
+              {cls;Write-Host 'Error. Try again.';break;}
+        } 'q' {
+            cls
+            Remove-SshSession -RemoveAll -ErrorAction Ignore
+            return
+        }
+    }
+    pause
+}
+until ($input -eq 'q')
